@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>サカナクション 楽曲解析アーカイブ【超完全版】</title>
+    <style>
+        /* ==========================================
+           全体のリセットと基本デザイン
+           ========================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: #070a13; /* より深い漆黒の海へ */
+            color: #f5f5f7;
+            line-height: 1.8;
+            padding-top: 80px;
+            overflow-x: hidden;
+        }
+        a {
+            color: #38bdf8;
+            text-decoration: none;
+        }
+
+        /* ヘッダー */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 80px;
+            background-color: rgba(7, 10, 19, 0.95);
+            backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 4%;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .logo {
+            font-size: 1rem;
+            font-weight: bold;
+            letter-spacing: 0.2em;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            text-align: center;
+        }
+
+        /* 制御用非表示スイッチ（全30曲分） */
+        #songs-sidebar-toggle, #nav-sidebar-toggle,
+        #s-mikazuki, #s-inner, #s-shiranami, #s-word, #s-sample, #s-nightfishing,
+        #s-centray, #s-native, #s-adventure, #s-aruku, #s-meaku, #s-identity,
+        #s-rookie, #s-bach, #s-bokutohana, #s-yorunoodoriko, #s-music, #s-aoi,
+        #s-goodbye, #s-eureka, #s-sayonara, #s-hasunohana, #s-shinbarajima,
+        #s-tabunkafe, #s-kagerou, #s-wasurenaino, #s-moss, #s-plateau, #s-shock, #s-kaiju {
+            display: none;
+        }
+
+        /* ==========================================
+           左側：▶️ボタン と スクロール全曲サイドバー
+           ========================================== */
+        .songs-btn {
+            font-size: 1.5rem;
+            cursor: pointer;
+            z-index: 110;
+            user-select: none;
+            transition: transform 0.2s;
+        }
+        .songs-btn:hover { transform: scale(1.1); }
+
+        .songs-menu {
+            position: fixed;
+            top: 0;
+            left: -360px;
+            width: 350px;
+            height: 100vh;
+            background-color: #0b111e;
+            padding: 100px 20px 40px 20px;
+            box-shadow: 5px 0 30px rgba(0,0,0,0.7);
+            transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 105;
+            overflow-y: auto;
+        }
+        .songs-menu h2 { font-size: 1.2rem; margin-bottom: 5px; color: #fff; letter-spacing: 0.1em; }
+        .songs-menu h3 {
+            font-size: 0.8rem; color: #38bdf8; margin-top: 25px; margin-bottom: 8px;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.25); padding-bottom: 4px; letter-spacing: 0.05em;
+        }
+        .songs-menu ul { list-style: none; }
+        .songs-menu ul li label {
+            display: block; padding: 7px 5px; font-size: 0.85rem; color: #9ca3af;
+            cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.02); transition: all 0.2s;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .songs-menu ul li label:hover {
+            background-color: rgba(56, 189, 248, 0.08); color: #38bdf8; padding-left: 10px;
+        }
+        .songs-menu ul li label span { font-size: 0.7rem; color: #4b5563; margin-right: 8px; }
+
+        #songs-sidebar-toggle:checked ~ .songs-menu { left: 0; }
+
+        /* ==========================================
+           右側：ハンバーガーメニュー
+           ========================================== */
+        .hamburger-btn { display: flex; flex-direction: column; justify-content: space-between; width: 24px; height: 16px; cursor: pointer; z-index: 110; }
+        .hamburger-btn span { display: block; width: 100%; height: 2px; background-color: #f5f5f7; transition: all 0.3s ease; }
+        #nav-sidebar-toggle:checked ~ .hamburger-btn span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        #nav-sidebar-toggle:checked ~ .hamburger-btn span:nth-child(2) { opacity: 0; }
+        #nav-sidebar-toggle:checked ~ .hamburger-btn span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        .nav-menu { position: fixed; top: 0; right: -100%; width: 280px; height: 100vh; background-color: #0b111e; padding: 100px 30px; box-shadow: -5px 0 25px rgba(0,0,0,0.5); transition: right 0.4s ease; z-index: 105; }
+        .nav-menu ul { list-style: none; }
+        .nav-menu ul li { margin-bottom: 20px; }
+        .nav-menu ul li a { font-size: 1rem; color: #fff; }
+        #nav-sidebar-toggle:checked ~ .nav-menu { right: 0; }
+
+        /* ==========================================
+           ラジオボタン連動・表示システム（30曲全対応）
+           ========================================== */
+        .container { max-width: 800px; margin: 0 auto; padding: 40px 20px; position: relative; }
+        .song-content { display: none; animation: fadeIn 0.4s ease forwards; }
+
+        #s-mikazuki:checked ~ .container #c-mikazuki, #s-inner:checked ~ .container #c-inner, #s-shiranami:checked ~ .container #c-shiranami,
+        #s-word:checked ~ .container #c-word, #s-sample:checked ~ .container #c-sample, #s-nightfishing:checked ~ .container #c-nightfishing,
+        #s-centray:checked ~ .container #c-centray, #s-native:checked ~ .container #c-native, #s-adventure:checked ~ .container #c-adventure,
+        #s-aruku:checked ~ .container #c-aruku, #s-meaku:checked ~ .container #c-meaku, #s-identity:checked ~ .container #c-identity,
+        #s-rookie:checked ~ .container #c-rookie, #s-bach:checked ~ .container #c-bach, #s-bokutohana:checked ~ .container #c-bokutohana,
+        #s-yorunoodoriko:checked ~ .container #c-yorunoodoriko, #s-music:checked ~ .container #c-music, #s-aoi:checked ~ .container #c-aoi,
+        #s-goodbye:checked ~ .container #c-goodbye, #s-eureka:checked ~ .container #c-eureka, #s-sayonara:checked ~ .container #c-sayonara,
+        #s-hasunohana:checked ~ .container #c-hasunohana, #s-shinbarajima:checked ~ .container #c-shinbarajima, #s-tabunkafe:checked ~ .container #c-tabunkafe,
+        #s-kagerou:checked ~ .container #c-kagerou, #s-wasurenaino:checked ~ .container #c-wasurenaino, #s-moss:checked ~ .container #c-moss,
+        #s-plateau:checked ~ .container #c-plateau, #s-shock:checked ~ .container #c-shock, #s-kaiju:checked ~ .container #c-kaiju {
+            display: block;
+        }
+
+        /* 選択されている曲のサイドバーラベルを点灯 */
+        #s-mikazuki:checked ~ .songs-menu [for="s-mikazuki"], #s-inner:checked ~ .songs-menu [for="s-inner"], #s-shiranami:checked ~ .songs-menu [for="s-shiranami"],
+        #s-word:checked ~ .songs-menu [for="s-word"], #s-sample:checked ~ .songs-menu [for="s-sample"], #s-nightfishing:checked ~ .songs-menu [for="s-nightfishing"],
+        #s-centray:checked ~ .songs-menu [for="s-centray"], #s-native:checked ~ .songs-menu [for="s-native"], #s-adventure:checked ~ .songs-menu [for="s-adventure"],
+        #s-aruku:checked ~ .songs-menu [for="s-aruku"], #s-meaku:checked ~ .songs-menu [for="s-meaku"], #s-identity:checked ~ .songs-menu [for="s-identity"],
+        #s-rookie:checked ~ .songs-menu [for="s-rookie"], #s-bach:checked ~ .songs-menu [for="s-bach"], #s-bokutohana:checked ~ .songs-menu [for="s-bokutohana"],
+        #s-yorunoodoriko:checked ~ .songs-menu [for="s-yorunoodoriko"], #s-music:checked ~ .songs-menu [for="s-music"], #s-aoi:checked ~ .songs-menu [for="s-aoi"],
+        #s-goodbye:checked ~ .songs-menu [for="s-goodbye"], #s-eureka:checked ~ .songs-menu [for="s-eureka"], #s-sayonara:checked ~ .songs-menu [for="s-sayonara"],
+        #s-hasunohana:checked ~ .songs-menu [for="s-hasunohana"], #s-shinbarajima:checked ~ .songs-menu [for="s-shinbarajima"], #s-tabunkafe:checked ~ .songs-menu [for="s-tabunkafe"],
+        #s-kagerou:checked ~ .songs-menu [for="s-kagerou"], #s-wasurenaino:checked ~ .songs-menu [for="s-wasurenaino"], #s-moss:checked ~ .songs-menu [for="s-moss"],
+        #s-plateau:checked ~ .songs-menu [for="s-plateau"], #s-shock:checked ~ .songs-menu [for="s-shock"], #s-kaiju:checked ~ .songs-menu [for="s-kaiju"] {
+            color: #38bdf8; background-color: rgba(56, 189, 248, 0.1); font-weight: bold; padding-left: 10px;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ==========================================
+           デザインコンポーネント
+           ========================================== */
+        .hero { text-align: center; padding: 30px 0 45px 0; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 35px; }
+        .artist-name { font-size: 0.9rem; letter-spacing: 0.4em; color: #9ca3af; margin-bottom: 8px; }
+        .song-title { font-size: 2.8rem; font-weight: 700; letter-spacing: 0.02em; margin-bottom: 12px; background: linear-gradient(to right, #fff, #38bdf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .catchphrase { font-size: 1rem; color: #d1d5db; margin-bottom: 22px; font-weight: 300; }
+
+        .youtube-link-btn { display: inline-flex; align-items: center; background-color: #ff0000; color: #fff; padding: 8px 20px; border-radius: 50px; font-weight: bold; font-size: 0.8rem; transition: all 0.3s; box-shadow: 0 4px 12px rgba(255, 0, 0, 0.2); }
+        .youtube-link-btn:hover { background-color: #cc0000; transform: translateY(-1px); box-shadow: 0 6px 15px rgba(255, 0, 0, 0.35); color: #fff; }
+        .youtube-link-btn::before { content: "▶"; margin-right: 6px; font-size: 0.7rem; }
+
+        .section { margin-bottom: 40px; }
+        .section h2 { font-size: 1.3rem; border-left: 3px solid #38bdf8; padding-left: 12px; margin-bottom: 15px; color: #fff; font-weight: 600; }
+        .section p { color: #9ca3af; text-align: justify; margin-bottom: 15px; font-size: 0.95rem; }
+        
+        .info-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .info-table th, .info-table td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.04); text-align: left; font-size: 0.9rem; }
+        .info-table th { width: 25%; color: #6b7280; font-weight: 500; }
+
+        .highlight-box { background-color: rgba(56, 189, 248, 0.02); border: 1px solid rgba(56, 189, 248, 0.12); padding: 18px; border-radius: 6px; margin: 20px 0; }
+        .highlight-box h3 { font-size: 1rem; margin-bottom: 6px; color: #38bdf8; }
+        .highlight-box p { font-size: 0.9rem; margin-bottom: 0; color: #d1d5db; }
+
+        footer { text-align: center; padding: 40px 0; color: #4b5563; font-size: 0.8rem; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 60px; }
+    </style>
+</head>
+<body>
+
+    <!-- 30曲のインプットトリガー（初期設定：ミュージック） -->
+    <input type="radio" name="sg" id="s-mikazuki"><input type="radio" name="sg" id="s-inner"><input type="radio" name="sg" id="s-shiranami"><input type="radio" name="sg" id="s-word"><input type="radio" name="sg" id="s-sample"><input type="radio" name="sg" id="s-nightfishing"><input type="radio" name="sg" id="s-centray"><input type="radio" name="sg" id="s-native"><input type="radio" name="sg" id="s-adventure"><input type="radio" name="sg" id="s-aruku"><input type="radio" name="sg" id="s-meaku"><input type="radio" name="sg" id="s-identity"><input type="radio" name="sg" id="s-rookie"><input type="radio" name="sg" id="s-bach"><input type="radio" name="sg" id="s-bokutohana"><input type="radio" name="sg" id="s-yorunoodoriko"><input type="radio" name="sg" id="s-music" checked><input type="radio" name="sg" id="s-aoi"><input type="radio" name="sg" id="s-goodbye"><input type="radio" name="sg" id="s-eureka"><input type="radio" name="sg" id="s-sayonara"><input type="radio" name="sg" id="s-hasunohana"><input type="radio" name="sg" id="s-shinbarajima"><input type="radio" name="sg" id="s-tabunkafe"><input type="radio" name="sg" id="s-kagerou"><input type="radio" name="sg" id="s-wasurenaino"><input type="radio" name="sg" id="s-moss"><input type="radio" name="sg" id="s-plateau"><input type="radio" name="sg" id="s-shock"><input type="radio" name="sg" id="s-kaiju">
+
+    <header>
+        <input type="checkbox" id="songs-sidebar-toggle">
+        <label for="songs-sidebar-toggle" class="songs-btn">▶️</label>
+
+        <!-- 左の全曲スクロールメニュー -->
+        <nav class="songs-menu">
+            <h2>SAKANACTION ALL TRACKS</h2>
+            <p style="font-size:0.7rem; color:#4b5563; margin-bottom:5px;">全30曲の超完全データベース</p>
+            
+            <h3>1st『GO TO THE FUTURE』 (2007)</h3>
+            <ul>
+                <li><label for="s-mikazuki"><span>01</span>三日月サンセット</label></li>
+                <li><label for="s-inner"><span>02</span>インナーワールド</label></li>
+                <li><label for="s-shiranami"><span>03</span>白波トップウォーター</label></li>
+            </ul>
+
+            <h3>2nd『NIGHT FISHING』 (2008)</h3>
+            <ul>
+                <li><label for="s-word"><span>04</span>ワード</label></li>
+                <li><label for="s-sample"><span>05</span>サンプル</label></li>
+                <li><label for="s-nightfishing"><span>06</span>ナイトフィッシングイズグッド</label></li>
+            </ul>
+
+            <h3>3rd『シンシロ』 (2009)</h3>
+            <ul>
+                <li><label for="s-centray"><span>07</span>セントレイ</label></li>
+                <li><label for="s-native"><span>08</span>ネイティブダンサー</label></li>
+                <li><label for="s-adventure"><span>09</span>アドベンチャー</label></li>
+            </ul>
+
+            <h3>4th『kikUUiki』 (2010)</h3>
+            <ul>
+                <li><label for="s-aruku"><span>10</span>アルクアラウンド</label></li>
+                <li><label for="s-meaku"><span>11</span>目が明く藍色</label></li>
+            </ul>
+
+            <h3>5th『DocumentaLy』 (2011)</h3>
+            <ul>
+                <li><label for="s-identity"><span>12</span>アイデンティティ</label></li>
+                <li><label for="s-rookie"><span>13</span>ルーキー</label></li>
+                <li><label for="s-bach"><span>14</span>『バッハの旋律を夜に聴いたせいです。』</label></li>
+            </ul>
+
+            <h3>6th『sakanaction』 (2013)</h3>
+            <ul>
+                <li><label for="s-bokutohana"><span>15</span>僕と花</label></li>
+                <li><label for="s-yorunoodoriko"><span>16</span>夜の踊り子</label></li>
+                <li><label for="s-music"><span>17</span>ミュージック</label></li>
+                <li><label for="s-aoi"><span>18</span>Aoi</label></li>
+            </ul>
+
+            <h3>7th〜 ベスト・コンセプト期 (2014-2018)</h3>
+            <ul>
+                <li><label for="s-goodbye"><span>19</span>グッドバイ</label></li>
+                <li><label for="s-eureka"><span>20</span>ユリイカ</label></li>
+                <li><label for="s-sayonara"><span>21</span>さよならはエモーション</label></li>
+                <li><label for="s-hasunohana"><span>22</span>蓮の花</label></li>
+                <li><label for="s-shinbarajima"><span>23</span>新宝島</label></li>
+                <li><label for="s-tabunkafe"><span>24</span>多分、風。</label></li>
+                <li><label key="s-kagerou" for="s-kagerou"><span>25</span>陽炎</label></li>
+            </ul>
+
+            <h3>8th『834.194』〜 現在 (2019-)</h3>
+            <ul>
+                <li><label for="s-wasurenaino"><span>26</span>忘れられないの</label></li>
+                <li><label for="s-moss"><span>27</span>モス</label></li>
+                <li><label for="s-plateau"><span>28</span>プラトー</label></li>
+                <li><label for="s-shock"><span>29</span>ショック！</label></li>
+                <li><label for="s-kaiju"><span>30</span>怪獣の腕のなか</label></li>
+            </ul>
+        </nav>
+
+        <div class="logo">SAKANACTION OVERVIEW ARCHIVE</div>
+        
+        <input type="checkbox" id="nav-sidebar-toggle">
+        <label for="nav-sidebar-toggle" class="hamburger-btn"><span></span><span></span><span></span></label>
+        <nav class="nav-menu">
+            <ul>
+                <li><a href="#">ARCHIVE TOP</a></li>
+                <li><a href="https://sakanaction.jp/" target="_blank">OFFICIAL SITE</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="container">
+
+        <!-- 01 三日月サンセット -->
+        <div class="song-content" id="c-mikazuki">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">三日月サンセット</h1>
+                <p class="catchphrase">すべての物語の始まり。初期インディーズフォークテクノの到達点</p>
+                <a href="https://www.youtube.com/watch?v=1S8sc8_Z-3A" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>1stアルバム『GO TO THE FUTURE』のリード曲。北海道在住時代の山口一郎が、弾き語りのフォークソングにエレクトロニカのループビートを融合させて生み出した、バンドのアイデンティティそのものと言える名曲です。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>アナログ感とデジタルループの対比</h3>
+                    <p>淡々としたリズムマシンの音の上で転がる、哀愁を帯びたアコースティックギターの音色。この「冷たさと温かさ」の同居こそが、その後の彼らのエレクトロロック路線の原点です。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 02 インナーワールド -->
+        <div class="song-content" id="c-inner">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">インナーワールド</h1>
+                <p class="catchphrase">自らの内面世界へと深く潜り込む、初期のキラーチューン</p>
+                <a href="https://www.youtube.com/watch?v=A78N7wWJ5fA" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>1stアルバムに収録。ライブハウス時代から演奏され、バンドの初期衝動を体現する、アッパーでありながらどこか影のあるオルタナティブ・ロックダンスナンバーです。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>焦燥感を煽るリズムのグルーヴ</h3>
+                    <p>サビで一気に激しくなるカッティングギターと、変則的に絡み合うシンセ音。自分自身を問い質すような内省的な歌詞が、高速ダンスビートに乗ることで異様なトランス感を生み出します。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 03 白波トップウォーター -->
+        <div class="song-content" id="c-shiranami">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">白波トップウォーター</h1>
+                <p class="catchphrase">北海道の夜の静寂を切り取った、初期屈指のチル・エレクトロニカ</p>
+                <a href="https://www.youtube.com/watch?v=gT_hG-P7S_g" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>1stアルバム収録の隠れた名曲。タイトルは釣りの用語（トップウォーター）から。夜の海辺や水面を想起させる、極めて繊細で叙情的なミディアムナンバーです。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>水滴を模した瑞々しいエフェクト音</h3>
+                    <p>イントロや間奏で鳴る、水の中に潜り込んだかのようなエコーの効いたギターフレーズ。空間の広がりを感じさせる音響設計が、深夜の孤独と完璧にシンクロします。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 04 ワード -->
+        <div class="song-content" id="c-word">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">ワード</h1>
+                <p class="catchphrase">言葉（ワード）の壁ともがく、初の両A面シングル曲</p>
+                <a href="https://www.youtube.com/watch?v=Vl3rF4AAL3M" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>2ndアルバム『NIGHT FISHING』に先駆けて配信された、バンドの実質的1stシングル。言葉を紡ぎ出すことの苦悩と、それを超えて他者と繋がりたいという渇望が描かれています。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>うねるシンセサイザーと生ドラムの緊迫感</h3>
+                    <p>Bメロの静寂からサビでベースラインがうねりを上げ、一気に感情が爆発する瞬間。文字通り「言葉」がリズムになって押し寄せてくるようなメロディ展開が秀逸です。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 05 サンプル -->
+        <div class="song-content" id="c-sample">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">サンプル</h1>
+                <p class="catchphrase">ダンスロックバンドとしての頭角を現した、最初期の重要曲</p>
+                <a href="https://www.youtube.com/watch?v=z81Nf2qIepc" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>2ndアルバムのリード曲。インディーズ時代において、クラブカルチャーの4つ打ちダンスビートとロックアンサンブルの融合を決定づけた、バンドのマイルストーンです。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>サビへの劇的なビルドアップ</h3>
+                    <p>徐々に熱量を上げていく16ビート。サビに入った途端に、ファンキーかつ鋭利なカッティングギターが空間を切り裂くカタルシスは、今のライブスタイルに直結しています。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 06 ナイトフィッシングイズグッド -->
+        <div class="song-content" id="c-nightfishing">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">ナイトフィッシングイズグッド</h1>
+                <p class="catchphrase">若き日の野心が奇跡を起こした、6分超えのロックオペラ</p>
+                <a href="https://www.youtube.com/watch?v=tZg_Vre_9bM" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>2ndアルバムの核。クイーンの『ボヘミアン・ラプソディ』へのオマージュを日本のロックに落とし込み、叙情バラード、多重合唱コーラス、超高速テクノを詰め込んだ大作です。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>突如訪れる多重コーラスの圧倒的世界</h3>
+                    <p>曲の中盤、演奏が完全にストップしてメンバー5人の声が何重にも重なる合唱パートへ。そこからディスコビートへと急転直下する、狂気的とも言える展開の鮮やかさ。 </p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 07 セントレイ -->
+        <div class="song-content" id="c-centray">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">セントレイ</h1>
+                <p class="catchphrase">メジャー進出を告げた、超高速のピアノインディーロック</p>
+                <a href="https://www.youtube.com/watch?v=vV9Vp0vV51E" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>初の全国流通シングルであり、3rdアルバム『シンシロ』収録。東京という大都会へ進出するバンドの「初期の焦燥感と決意」が、かつてないほどのハイスピードなビートに昇華されています。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>1000と0の間を埋めるピアノの連打</h3>
+                    <p>イントロからラストまで、キーボード・岡崎英美が両手で激しく打ち鳴らすオクターブのピアノフレーズ。これがデジタル世界と生音の境界を表現し、疾走感を極限まで高めています。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 08 ネイティブダンサー -->
+        <div class="song-content" id="c-native">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">ネイティブダンサー</h1>
+                <p class="catchphrase">冬のストリートに雪が舞うような、極上のミニマルテクノロック</p>
+                <a href="https://www.youtube.com/watch?v=jS9Z_C9A7fA" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>3rdアルバム『シンシロ』を象徴する曲。シングルカットなしでありながらファンから圧倒的な人気を誇り、スニーカーの複雑なステップを映したMVはYouTube黎明期に大ヒットしました。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>クラップ（手拍子）に施されたエコーの魔術</h3>
+                    <p>淡々と同じコードを繰り返す美しいピアノに、絶妙なタイミングで入る「パパン！」という手拍子。このミニマリズム（反復効果）が、切ないメロディと言葉を最大に引き立てます。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 09 アドベンチャー -->
+        <div class="song-content" id="c-adventure">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">アドベンチャー</h1>
+                <p class="catchphrase">リスナーと共に未来へ歩き出すための、感動のアンセム</p>
+                <a href="https://www.youtube.com/watch?v=Yp69m-vH2M8" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>3rdアルバム収録。上京後に孤独を感じていた山口一郎が、ファンや音楽仲間という「新しい出会い」を冒険（アドベンチャー）に喩えて歌った、ライブのラストを飾る定番曲です。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>地を這うような生ベースとシンセの調和</h3>
+                    <p>ゆったりとした縦ノリのグルーヴ。サビで視界が広がるように重なるシンセサイザーのレイヤーと、暖かく包み込むようなコーラスが、聴き手に明日への一歩を踏み出す勇気をくれます。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 10 アルクアラウンド -->
+        <div class="song-content" id="c-aruku">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">アルクアラウンド</h1>
+                <p class="catchphrase">視覚と聴覚をハックした、歴史的リアルアート・ポップ</p>
+                <a href="https://www.youtube.com/watch?v=vS6wzjpCvec" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>2ndシングル、4thアルバム『kikUUiki』収録。実際の空間に配置された歌詞のオブジェクトがカメラワークによって繋がり言葉を紡ぐ「一発撮りMV」が社会現象となり、バンドの知名度を決定づけました。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>90年代J-POPへの批評と最高峰のベースライン</h3>
+                    <p>J-POP黄金期のキャッチーさをサカナクション流の解釈で再構築。ベース・草刈愛美によるメロディックに動き続ける16ビートラインが、曲全体を圧倒的な速度でドライブさせています。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 11 目が明く藍色 -->
+        <div class="song-content" id="c-meaku">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">目が明く藍色</h1>
+                <p class="catchphrase">山口一郎の精神世界の深淵を具現化した、バンド史上最大の衝撃作</p>
+                <a href="https://www.youtube.com/watch?v=v7rKshZf_vE" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>4thアルバム『kikUUiki』の核をなす、7分近くに及ぶ大組曲。これまでのポップスの枠組みを完全に破壊し、彼らの音楽的ルーツや精神の葛藤、狂気をすべて叩きつけた記念碑的作品です。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>何段階もの変調を経て訪れる「サヨナラ」の咆哮</h3>
+                    <p>まったく異なる5つの楽曲を融合させたかのような展開。静寂と混沌を繰り返した最後の最後に、轟音のオーケストレーションと共に山口一郎が「サヨナラは言えないぞ」と絶叫するシーンは圧巻です。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 12 アイデンティティ -->
+        <div class="song-content" id="c-identity">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">アイデンティティ</h1>
+                <p class="catchphrase">「自分らしさ」の不在を叫ぶ、最強のダンスフェスアンセム</p>
+                <a href="https://www.youtube.com/watch?v=1awN9p8Z_pI" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>3rdシングル、5thアルバム『DocumentaLy』収録。ライブにおいて会場全体が地響きのように縦に揺れる大定番曲。重く哲学的なテーマを、これ以上ないほどアッパーなラテンビートに乗せて歌い上げます。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>コンガとボンゴが暴れ狂うカオスなアレンジ</h3>
+                    <p>ポップなサビの裏で、コンガやボンゴといった民族打楽器が高速で乱舞。ロックバンドの枠組みを完全に逸脱した、祝祭的かつ狂気的なアレンジメントが聴き手を強烈にトランスさせます。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 13 ルーキー -->
+        <div class="song-content" id="c-rookie">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">ルーキー</h1>
+                <p class="catchphrase">深淵なる闇からダンスフロアへ叩きつける、超重低音エレクトロ</p>
+                <a href="https://www.youtube.com/watch?v=S3L79F_U_9A" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>4thシングル。当時の山口一郎が極限の精神状態で綴った内省的な歌詞を、クラブの爆音システムに最適化されたベースサウンドで包み込んだ、バンドの次元を引き上げた超重要曲です。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>ビルドアップからドロップへの音圧の暴力</h3>
+                    <p>Aメロ・Bメロであえて音を絞り込み、不穏な空気をこれでもかと溜めます（ビルドアップ）。そしてサビに入った瞬間、凶暴に歪んだシンセベースが音の壁となって爆発する緩急の設計が極上です。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 14 『バッハの旋律を夜に聴いたせいです。』 -->
+        <div class="song-content" id="c-bach">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">『バッハの旋律を夜に聴いたせいです。』</h1>
+                <p class="catchphrase">スタイリッシュとシュールが奇跡の融合を果たしたポップスの極み</p>
+                <a href="https://www.youtube.com/watch?v=T8y5OWn4868" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>5thシングル。一度聴いたら忘れられない長大なタイトルと、山口一郎の等身大マネキン4体と本人が一糸乱れぬダンスを踊る芸術的かつシュールなMVで大きな注目を浴び、お茶の間に深く浸透しました。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>クラシック音楽の構造を取り入れた高速シーケンス</h3>
+                    <p>サビのバックで鳴り響く、バッハのチェンバロ協奏曲を想起させるような超高密度のシンセサイザーの16分音符フレーズ。高度な音楽理論とポップスが見事に一体化しています。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 15 僕と花 -->
+        <div class="song-content" id="c-bokutohana">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">僕と花</h1>
+                <p class="catchphrase">初のゴールデンタイムドラマ主題歌。計算され尽くしたミニマリズム</p>
+                <a href="https://www.youtube.com/watch?v=u0uC4mI6fO8" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>6thシングル。ドラマ『37歳で医者になった僕』主題歌。お茶の間に流れることを徹底的に意識しつつも、彼らの核である「ストイックなクラブミュージック」を一切妥協せずに忍び込ませた秀作です。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>引き算の美学で作られたイントロ</h3>
+                    <p>ドラムのキック音と、最小限のシンセ、そして山口のボーカルから静かに始まる構成。音がスカスカであるからこそ、メロディの美しさと歌詞の輪郭が鮮明に浮かび上がります。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 16 夜の踊り子 -->
+        <div class="song-content" id="c-yorunoodoriko">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">夜の踊り子</h1>
+                <p class="catchphrase">和の旋律×本格サイケデリックトランス、トランスの快感をJ-POPへ</p>
+                <a href="https://www.youtube.com/watch?v=6AIdXisPqHc" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>7thシングル。モード学園CMソング。日本的な情緒をたたえたメロディラインを、ヨーロッパの巨大クラブさながらの強烈なトランスビートに乗せて鳴らす、ダンスロックの最高峰です。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>徐々にフィルターが開くシンセサイザーのアルペジオ</h3>
+                    <p>イントロから同じ旋律をひたすらループするシンセ音。曲が進むにつれて音のザラつき（カットオフ）が解放され、サビに向けてリスナーの興奮度を強制的に引き上げる音響ギミックが鳥肌ものです。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 17 ミュージック -->
+        <div class="song-content" id="c-music">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">ミュージック</h1>
+                <p class="catchphrase">「音楽に生きる」覚悟を鳴らした、彼らの魂そのもの</p>
+                <a href="https://www.youtube.com/watch?v=iVjpXWepv6Y" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>8thシングル、6thアルバム『sakanaction』の核。山口一郎が「これを作れなければバンドを辞める」という極限の重圧の中で生み出した、サカナクションというバンドの存在意義そのものを証明する金字塔です。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>ヘッドホンからスタジアムへの空間跳躍</h3>
+                    <p>前半は自室の机の上で完結するような「中央に凝縮されたモノラルライクな音響」。それがサビに入った瞬間、生ドラムとベースが一気に「左右両端（超ワイドステレオ）」へ爆発。聴き手を一瞬で巨大フェスのフロアへ突き落とす完璧な音響設計です。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 18 Aoi -->
+        <div class="song-content" id="c-aoi">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">Aoi</h1>
+                <p class="catchphrase">スタジアム全体を狂熱で染め上げる、爆発的ギターロック</p>
+                <a href="https://www.youtube.com/watch?v=9S_pU802S7k" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>6thアルバム収録。NHKサッカーテーマソングとして書き下ろされ、「青（日本代表）」と「蒼（青春）」をテーマに、ギター・岩寺基晴の鋭利なカッティングが全編を牽引するスタジアムアンセムです。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>怒涛のツインギターと合唱コーラスの熱量</h3>
+                    <p>テクノロジー主体のアルバムの中で、あえて初期のバンド衝動を剥き出しにしたアレンジ。サビのバックで響き渡る壮大なスタジアム級のコーラスが、尋常ではない高揚感を生み出します。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 19 グッドバイ -->
+        <div class="song-content" id="c-goodbye">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">グッドバイ</h1>
+                <p class="catchphrase">過去との決別、そして新たな世界へと歩み出す感動のバラード</p>
+                <a href="https://www.youtube.com/watch?v=33A6bXv8w3w" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>9thシングル（両A面）。それまでの「踊らせるサカナクション」から一転、静かに自らの歩みを見つめ直すような、深いエモーショナルを湛えた究極のミディアムバラードです。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>世界の境界を表現したドラマチックな転調</h3>
+                    <p>静寂に満ちたAメロから、じわじわと感情の波が押し寄せ、サビで世界が反転するように美しく転調。これまでの自分へ「グッドバイ」を告げるかのような切なさと力強さが共存しています。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 20 ユリイカ -->
+        <div class="song-content" id="c-eureka">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">ユリイカ</h1>
+                <p class="catchphrase">東京という街の孤独と夜を淡々と活写する、シネマティック・チルアウト</p>
+                <a href="https://www.youtube.com/watch?v=vVbN8gY_K0I" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>9thシングル（両A面）、映画『ジャッジ！』エンディングテーマ。これまでのアッパーなダンスビートを完全に削ぎ落とし、深夜の東京をドライブしているかのような静謐なグルーヴを持った文学的作品です。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>心臓の鼓動のように刻まれるミニマル・キック</h3>
+                    <p>最後まで大きな破綻なく、淡々とループし続けるディープ・ハウス風のビート。その上で優しく囁かれる山口一郎のボーカルと、残響に包まれたシンセのコードが至高の心地よさです。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 21 さよならはエモーション -->
+        <div class="song-content" id="c-sayonara">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">さよならはエモーション</h1>
+                <p class="catchphrase">「静」から「動」への完璧なるトランスフォーム</p>
+                <a href="https://www.youtube.com/watch?v=v2Mngf8v_P4" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>10thシングル。制作に1年以上の歳月を費やし、バンドのこだわりが極限まで詰め込まれました。一見するとシンプルなミディアムテンポの楽曲ですが、後半に凄まじい展開が用意されています。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>アウトロで突如出現する狂乱のダンスフロア</h3>
+                    <p>曲の終盤、ボーカルパートが終わった後に突如BPM（テンポ）が加速したかのように感じさせる超攻撃的なテクノ・セッションへと変貌。この予測不能な音響展開は鳥肌必至です。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 22 蓮の花 -->
+        <div class="song-content" id="c-hasunohana">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">蓮の花</h1>
+                <p class="catchphrase">サイケデリックな夢幻の世界へ誘う、中毒性抜群のミニマル・ポップ</p>
+                <a href="https://www.youtube.com/watch?v=F5KIsCgU9Rk" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>10thシングル（両A面）、映画『近キョリ恋愛』主題歌。蜘蛛の糸や蓮の花といった仏教的なモチーフを取り入れながら、浮遊感のある歪んだサイケデリック・サウンドを展開する中毒曲です。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>左右をトリッピーに飛び交うシンセサイザー</h3>
+                    <p>ヘッドホンで聴くと、音が波打つように右から左、左から右へと目まぐるしく移動します。夢の境界線を歩いているかのような独特の浮遊感が計算し尽くされています。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 23 新宝島 -->
+        <div class="song-content" id="c-shinbarajima">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">新宝島</h1>
+                <p class="catchphrase">J-POPの歴史を完全に塗り替えた、全世代対応型のディスコポップ</p>
+                <a href="https://www.youtube.com/watch?v=LIlZCmETvsY" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>11thシングル、映画『バクマン。』主題歌。YouTube再生回数は異次元の数字を叩き出し、手塚治虫の漫画タイトルから名付けられた、名実ともに彼らの最高峰の国民的代表曲です。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>あえて泥臭さを残した「縦ノリ」のイントロ</h3>
+                    <p>昭和の歌謡曲やドリフターズへの最大のリスペクトを込めた、太くシンプルなシンセベースのフレーズ。一歩間違えればコミックソングになるラインを、超洗練されたJ-POPへと昇華した手腕は見事です。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 24 多分、風。 -->
+        <div class="song-content" id="c-tabunkafe">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">多分、風。</h1>
+                <p class="catchphrase">80年代の風を纏った、ストイックすぎる超ハイファイ・エレポップ</p>
+                <a href="https://www.youtube.com/watch?v=8Lg50787bHw" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>12thシングル、資生堂「Anessa」CMソング。ハイレゾ音源の極限を目指し、凄まじい時間とスタジオ費用をかけて音響の微調整を繰り返した、狂気的な音へのこだわりが詰まった高速ドライブナンバーです。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>風が吹き抜けるようなアコースティックギターの高速ストローク</h3>
+                    <p>全編を駆け巡るシンセベースの裏で、ものすごい速度で正確に刻まれるアコギの生音。このデジタルとアナログのハイレベルな摩擦が、タイトルの通り「風」の疾走感を表現しています。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 25 陽炎 -->
+        <div class="song-content" id="c-kagerou">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">陽炎</h1>
+                <p class="catchphrase">映画の世界をレトロポップに染めた、ファンキー・オールドディスコ</p>
+                <a href="https://www.youtube.com/watch?v=Aof_72eM0Hw" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>映画『曇天に笑う』主題歌であり、ベストアルバム『魚図鑑』等に収録。どこか懐かしい歌謡曲チックなメロディラインと、跳ねるようなファンキービートが融合した、現在のライブでも屈指の盛り上がりを見せる楽曲です。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>コミカルで小気味いいシンセブラスのリフ</h3>
+                    <p>イントロからサビ裏まで徹底して鳴り響く、ディスコ黄金期を彷彿とさせるシンセブラス（ホーン）の音色。思わず体を揺らしたくなるコミカルな軽快さが完璧です。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 26 忘れられないの -->
+        <div class="song-content" id="c-wasurenaino">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">忘れられないの</h1>
+                <p class="catchphrase">80'sシティポップを完全パロディ＆完全モダン再定義した至高のファンク</p>
+                <a href="https://www.youtube.com/watch?v=BxqYUbNR-c0" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>アルバム『834.194』のリード曲。80年代の歌番組やカルチャーを衣装・画角にいたるまで徹底的にパロディしたMVが大きな話題を呼ぶ一方、サウンドはJ-POP界最高峰の超ハイファイファンクです。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>草刈愛美による神懸かり的なスラップベース</h3>
+                    <p>イントロから炸裂する、パーカッシブでうねりまくるスラップ（チョッパー）ベース。それに一糸乱れぬタイトさで追従するドラムのハイハットワークは、プロのミュージシャン勢からも大絶賛されました。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 27 モス -->
+        <div class="song-content" id="c-moss">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">モス</h1>
+                <p class="catchphrase">「繭を破った蛾（モス）になる」異色のニューウェイブ・ガレージロック</p>
+                <a href="https://www.youtube.com/watch?v=68f6O76qEic" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>アルバム『834.194』収録、ドラマ『ルパンの娘』主題歌。「マイノリティ（少数派）の逆襲」をテーマに、高音のヘンテコなシンセフレーズと激しいロックリフが絡み合う、一癖も二癖もあるアッパーチューンです。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>サビでの「マイノリティ！」の連呼とカオス度</h3>
+                    <p>サビで繰り返される「マイノリティ！」というキャッチーな叫び。裏ではTalking Headsを彷彿とさせるニューウェイブ特有の乾いたファンクギターが炸裂しており、強烈な中毒性を生んでいます。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 28 プラトー -->
+        <div class="song-content" id="c-plateau">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">プラトー</h1>
+                <p class="catchphrase">停滞期（プラトー）を破る、洗練された近未来アンビエント・テクノ</p>
+                <a href="https://www.youtube.com/watch?v=9_C86CofTq8" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>コンセプトアルバム『アダプト』に収録。参天製薬のCMソング。「プラトー＝一時的な停滞状態」の中で、曖昧な世界をどう生きていくかを静かに問う、新時代のサカナクションを象徴するスタイリッシュな楽曲です。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>細切れにされたエディット・ボーカルの響き</h3>
+                    <p>イントロやサビの裏で鳴り響く、山口一郎の歌声をデジタル処理で細かく裁断した（ボイスサンプル）電子音のテクスチャ。冷徹なまでのテクノロジーの美しさが光ります。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 29 ショック！ -->
+        <div class="song-content" id="c-shock">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">ショック！</h1>
+                <p class="catchphrase">これぞサカナ流レトロ・アフロファンク。誰もが口ずさむ「ショック！」の衝撃</p>
+                <a href="https://www.youtube.com/watch?v=zHnIDN58N2k" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>映画『劇場版 ルパンの娘』主題歌。70年代のアフロビートや、かつての日本の「昭和歌謡バラエティ番組」の熱量を、最新のクラブミュージックの音圧でアップデートした超ド級のダンスナンバーです。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>耳から離れないコーラスと奇妙なパーカッション</h3>
+                    <p>「ショック！」というひたすらリピートされる掛け声と、背後で激しく鳴らされる変拍子気味の木琴（シロフォン）のような音色。コミカルさと超一級の音楽的センスのブレンドが完璧です。</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 30 怪獣の腕のなか -->
+        <div class="song-content" id="c-kaiju">
+            <section class="hero">
+                <p class="artist-name">サカナクション</p>
+                <h1 class="song-title">怪獣の腕のなか</h1>
+                <p class="catchphrase">おかえり、サカナクション。暗闇の果てに辿り着いた優しき世界</p>
+                <a href="https://www.youtube.com/watch?v=pYgN-N-wO3s" target="_blank" class="youtube-link-btn">YouTubeで視聴する</a>
+            </section>
+            <section class="section">
+                <h2>楽曲概要</h2>
+                <p>バンドの長い活動休止期間、そして山口一郎の完全復活を経て届けられた、彼らのこれからの歩みを祝福する極めて重要なバラード。トゲトゲした電子音ではなく、すべてを肯定するような壮大なアンビエントロックです。</p>
+            </section>
+            <section class="section">
+                <h2>細かすぎる聴きどころ</h2>
+                <div class="highlight-box">
+                    <h3>生楽器の呼吸と、心を包み込む全肯定のシンフォニー</h3>
+                    <p>優しく重なり合う美しいストリングス（弦楽器）と、包容力に満ちた山口一郎の生々しい歌声。これまでの葛藤の歴史をすべて背負い、それでもリスナーに「おかえり」を告げるような人間味が最高の音響で鳴らされています。</p>
+                </div>
+            </section>
+        </div>
+
+    </main>
+
+    <footer>
+        <p>&copy; 2026 サカナクション 楽曲解析アーカイブ【超完全版】. All Rights Reserved.</p>
+    </footer>
+
+</body>
+</html>
